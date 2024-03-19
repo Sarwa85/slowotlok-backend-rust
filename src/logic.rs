@@ -1,3 +1,7 @@
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::card;
 use crate::card::Card;
 use crate::io;
@@ -5,6 +9,12 @@ use crate::messages;
 use crate::repo::Repository;
 use crate::repo::RepositorySimpleResult;
 use colored::Colorize;
+use cursive::view::Resizable;
+use cursive::views::Button;
+use cursive::views::Dialog;
+use cursive::views::LinearLayout;
+use cursive::views::ResizedView;
+use cursive::Cursive;
 
 pub struct Logic {
     repo: Repository,
@@ -16,27 +26,33 @@ impl Logic {
     }
 
     pub fn start(&mut self) {
-        loop {
-            messages::print_title("Słowotłok");
-            println!(
-                "Words count: {}",
-                format!("{}", self.repo.count()).black().on_white()
-            );
-            let choice = Logic::ask_for_list(vec!["Test (random)", "Manage words"]);
-            match choice.trim() {
-                "1" => {
-                    self.play_random_cards();
-                }
-                "2" => {
-                    self.word_manage();
-                }
-                "q" => {
-                    return;
-                }
-                _ => messages::print_wrong_choice(&choice[..]),
-            }
-        }
+        let mut siv = cursive::default();
+
+        siv.add_global_callback('q', |s| s.quit());
+
+        // let me = &Rc<self>;
+
+
+        siv.add_fullscreen_layer(
+            Dialog::around(
+                LinearLayout::vertical()
+                    .child(Button::new("Test (random)", move |s| {
+                        // println!("{}", me.borrow_mut().repo.count());
+                        // me.borrow_mut().show_test_random();
+                        // todo!();
+                        // self.show_test_random();
+                    }))
+                    .child(Button::new("Manage words", |s| todo!()))
+                    .child(Button::new("Quit", |s| s.quit())),
+            )
+            .title("Słowotłok")
+            .full_screen(),
+        );
+
+        siv.run();
     }
+
+    pub fn show_test_random(&mut self) {}
 
     pub fn play_random_cards(&mut self) {
         messages::print_title("Test (random)");
