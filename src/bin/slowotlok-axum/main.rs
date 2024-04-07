@@ -13,14 +13,16 @@ use axum::{
 };
 use cursive::vec;
 use serde::{Deserialize, Serialize};
-use slowotlok_backend::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, simple_repository::SimpleRepository};
+use slowotlok_backend::repository::RepositoryTrait;
+
 
 #[tokio::main]
 async fn main() {
     // initialize tracing
     // tracing_subscriber::fmt::init();
 
-    let mut repo = Arc::new(RwLock::new(Repository::new()));
+    let mut repo: Arc<RwLock<dyn RepositoryTrait + Sync + Send>> = Arc::new(RwLock::new(SimpleRepository::new()));
     let app = Router::new()
         .route("/card", post(add_card).get(get_cards).patch(update_card))
         .route("/card/:id", delete(rm_card))
@@ -42,38 +44,38 @@ async fn handle_error(error: Error) -> (StatusCode, String) {
 }
 
 async fn add_card(
-    State(repo): State<Arc<RwLock<Repository>>>,
+    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
     Json(payload): Json<AddCardDTO>,
 ) -> Response {
     let mut c = Card::new(payload.src, payload.tr);
     match repo.write().unwrap().insert(&mut c) {
-        slowotlok_backend::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
             return Json(c).into_response();
         }
-        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
 }
 
-async fn rm_card(State(repo): State<Arc<RwLock<Repository>>>, Path(id): Path<i64>) -> Response {
+async fn rm_card(State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>, Path(id): Path<i64>) -> Response {
     // let mut c = Card::new(payload.src, payload.tr);
     match repo.write().unwrap().delete_by_id(id) {
-        slowotlok_backend::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
             return Response::new("".into());
         }
-        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
 }
 
-async fn get_cards(State(repo): State<Arc<RwLock<Repository>>>) -> Response {
+async fn get_cards(State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>) -> Response {
     let out = repo.read().unwrap().all();
     Json(out).into_response()
 }
 async fn update_card(
-    State(repo): State<Arc<RwLock<Repository>>>,
+    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
     Json(payload): Json<CardDTO>,
 ) -> Response {
     let c = Card {
@@ -84,17 +86,17 @@ async fn update_card(
         bad: payload.bad,
     };
     match repo.write().unwrap().update(&c) {
-        slowotlok_backend::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
             return Json(c).into_response();
         }
-        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
 }
 
 async fn import_cards(
-    State(repo): State<Arc<RwLock<Repository>>>,
+    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
     Json(payload): Json<Vec<AddCardDTO>>,
 ) -> Response {
     let mut response_struct = ImportCardsResponse{added: vec![], errors: vec![]};
@@ -103,10 +105,10 @@ async fn import_cards(
     for card in payload.iter() {
         let mut c = Card::new(card.src.clone(),card.tr.clone());
         match repo.write().unwrap().insert(&mut c) {
-            slowotlok_backend::repo::RepositorySimpleResult::OK => {
+            slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
                 response_struct.added.push(c)
             },
-            slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
+            slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
                 response_struct.errors.push(error_text)
             },
         }
@@ -116,7 +118,7 @@ async fn import_cards(
 }
 
 async fn get_cards_random(
-    State(repo): State<Arc<RwLock<Repository>>>,
+    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
     Path(count): Path<usize>,
 ) -> Response {
     let out = repo.read().unwrap().random(count);

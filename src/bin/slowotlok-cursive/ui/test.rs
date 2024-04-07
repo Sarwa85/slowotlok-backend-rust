@@ -1,15 +1,15 @@
 use std::{cell::RefCell, rc::Rc};
-
+use slowotlok_backend::repository::RepositoryTrait;
 use cursive::{
     event,
     views::{Dialog, OnEventView},
     Cursive,
 };
-use slowotlok_backend::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, simple_repository::SimpleRepository};
 
 use super::VoteData;
 
-pub fn show_test_random(s: &mut Cursive, repo: Rc<RefCell<Repository>>) {
+pub fn show_test_random(s: &mut Cursive, repo: Rc<RefCell<SimpleRepository>>) {
     let words = repo.borrow().random(10);
     let words_len = words.len();
     for (i, word) in words.iter().enumerate() {
@@ -35,7 +35,7 @@ pub fn show_test_random(s: &mut Cursive, repo: Rc<RefCell<Repository>>) {
     }
 }
 
-fn show_voting(s: &mut Cursive, repo: Rc<RefCell<Repository>>, vote_data: VoteData) {
+fn show_voting(s: &mut Cursive, repo: Rc<RefCell<SimpleRepository>>, vote_data: VoteData) {
     s.pop_layer();
     // let repo_good_event = Rc::clone(&repo);
     // let repo_bad_event = Rc::clone(&repo);
@@ -74,7 +74,7 @@ fn show_voting(s: &mut Cursive, repo: Rc<RefCell<Repository>>, vote_data: VoteDa
     );
 }
 
-fn vote(s: &mut Cursive, repo: Rc<RefCell<Repository>>, mut card: Card, good: bool) {
+fn vote(s: &mut Cursive, repo: Rc<RefCell<SimpleRepository>>, mut card: Card, good: bool) {
     if good {
         card.good += 1
     } else {
@@ -82,8 +82,8 @@ fn vote(s: &mut Cursive, repo: Rc<RefCell<Repository>>, mut card: Card, good: bo
     }
     // repo
     match (*repo).borrow_mut().update(&card) {
-        slowotlok_backend::repo::RepositorySimpleResult::OK => (),
-        slowotlok_backend::repo::RepositorySimpleResult::Failed(_) => todo!(),
+        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => (),
+        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(_) => todo!(),
     }
     s.pop_layer();
 }

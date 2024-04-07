@@ -1,16 +1,16 @@
-use std::{cell::RefCell, rc::Rc};
-
 use cursive::{
     view::{Nameable, Resizable},
     views::{Button, Dialog, LinearLayout, OnEventView, SelectView},
     Cursive,
 };
-use slowotlok_backend::{card::Card, repo::Repository};
+use slowotlok_backend::repository::RepositoryTrait;
+use slowotlok_backend::{card::Card, simple_repository::SimpleRepository};
+use std::{cell::RefCell, rc::Rc};
 
 use super::{show_card_details, show_message};
 
 // pub mod manage_words {
-pub fn show_manage_words(s: &mut Cursive, repo: Rc<RefCell<Repository>>) {
+pub fn show_manage_words(s: &mut Cursive, repo: Rc<RefCell<SimpleRepository>>) {
     let word_list_view = SelectView::<Card>::new()
         .on_submit(|s, c: &Card| show_card_details(s, c))
         .with_name("select")
@@ -26,7 +26,7 @@ pub fn show_manage_words(s: &mut Cursive, repo: Rc<RefCell<Repository>>) {
                 LinearLayout::vertical()
                     .child(word_list_view)
                     // .child(footer)
-                    .child(back_button)
+                    .child(back_button),
             )
             .title("Słowotłok 1")
             .full_screen(),

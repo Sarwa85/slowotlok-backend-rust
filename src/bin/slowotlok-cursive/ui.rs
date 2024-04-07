@@ -9,7 +9,7 @@ use cursive::{
     Cursive,
 };
 pub use manage_words::show_manage_words;
-use slowotlok_backend::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, simple_repository::SimpleRepository};
 pub use test::show_test_random;
 
 #[derive(Clone, Debug)]
@@ -19,7 +19,7 @@ pub struct VoteData {
     max_index: usize,
 }
 
-pub fn show_start(s: &mut Cursive, repo: Rc<RefCell<Repository>>) {
+pub fn show_start(s: &mut Cursive, repo: Rc<RefCell<SimpleRepository>>) {
     s.add_fullscreen_layer(
         Dialog::around(
             LinearLayout::vertical()

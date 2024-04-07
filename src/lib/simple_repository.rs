@@ -1,11 +1,12 @@
 use crate::card::Card;
+use crate::repository::RepositoryTrait;
 use rand::seq::index::sample;
 use rand::thread_rng;
 use std::cmp;
 use std::fs::File;
 use std::io::{Read, Write};
 
-pub struct Repository {
+pub struct SimpleRepository {
     model: Vec<Card>,
     last_id: i64,
 }
@@ -15,7 +16,7 @@ pub enum RepositorySimpleResult {
     Failed(String),
 }
 
-impl Repository {
+impl SimpleRepository {
     pub fn new() -> Self {
         let mut out = Self {
             model: vec![],
@@ -47,11 +48,14 @@ impl Repository {
         }
     }
 
-    pub fn count(&self) -> usize {
-        return self.model.len();
+    fn new_id(&mut self) -> i64 {
+        self.last_id += 1;
+        self.last_id
     }
+}
 
-    pub fn random(&self, count: usize) -> Vec<Card> {
+impl RepositoryTrait for SimpleRepository {
+    fn random(&self, count: usize) -> Vec<Card> {
         let mut rng = thread_rng();
         let out = sample(
             &mut rng,
@@ -64,19 +68,22 @@ impl Repository {
         out
     }
 
-    pub fn all(&self) -> Vec<Card> {
-        // return self.model.clone();
+    fn count(&self) -> usize {
+        return self.model.len();
+    }
+
+    fn all(&self) -> Vec<Card> {
         self.model.iter().map(|e| e.clone()).collect()
     }
 
-    pub fn insert(&mut self, card: &mut Card) -> RepositorySimpleResult {
+    fn insert(&mut self, card: &mut Card) -> RepositorySimpleResult {
         card.id = self.new_id();
         self.model.push(card.clone());
         self.save();
         RepositorySimpleResult::OK
     }
 
-    pub fn insert_list(&mut self, cards: &mut Vec<Card>) -> RepositorySimpleResult {
+    fn insert_list(&mut self, cards: &mut Vec<Card>) -> RepositorySimpleResult {
         for card in cards.iter_mut() {
             card.id = self.new_id();
             self.model.push(card.clone());
@@ -85,8 +92,7 @@ impl Repository {
         RepositorySimpleResult::OK
     }
 
-    /// Update values of card in base, found by id.
-    pub fn update(&mut self, card: &Card) -> RepositorySimpleResult {
+    fn update(&mut self, card: &Card) -> RepositorySimpleResult {
         match self.model.iter_mut().find(|cd| cd.id == card.id) {
             Some(some) => {
                 *some = Card {
@@ -103,7 +109,7 @@ impl Repository {
         }
     }
 
-    pub fn delete(&mut self, card: &Card) -> RepositorySimpleResult {
+    fn delete(&mut self, card: &Card) -> RepositorySimpleResult {
         match self.model.iter().position(|c| c.id == card.id) {
             Some(i) => {
                 self.model.remove(i);
@@ -115,7 +121,7 @@ impl Repository {
         }
     }
 
-    pub fn delete_by_id(&mut self, id: i64) -> RepositorySimpleResult {
+    fn delete_by_id(&mut self, id: i64) -> RepositorySimpleResult {
         match self.model.iter().position(|c| c.id == id) {
             Some(i) => {
                 self.model.remove(i);
@@ -125,10 +131,5 @@ impl Repository {
                 return RepositorySimpleResult::Failed(format!("Can't find card"));
             }
         }
-    }
-
-    pub fn new_id(&mut self) -> i64 {
-        self.last_id += 1;
-        self.last_id
     }
 }
