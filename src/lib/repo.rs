@@ -69,9 +69,9 @@ impl Repository {
         self.model.iter().map(|e| e.clone()).collect()
     }
 
-    pub fn insert(&mut self, mut card: Card) -> RepositorySimpleResult {
+    pub fn insert(&mut self, card: &mut Card) -> RepositorySimpleResult {
         card.id = self.new_id();
-        self.model.push(card);
+        self.model.push(card.clone());
         self.save();
         RepositorySimpleResult::OK
     }
