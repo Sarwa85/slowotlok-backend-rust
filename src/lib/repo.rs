@@ -98,10 +98,24 @@ impl Repository {
         match self.model.iter().position(|c| c.id == card.id) {
             Some(i) => {
                 self.model.remove(i);
+                return RepositorySimpleResult::OK;
             }
-            None => todo!(),
+            None => {
+                return RepositorySimpleResult::Failed(format!("Can't find card"));
+            }
         }
-        RepositorySimpleResult::Failed(format!("No implemented yet"))
+    }
+
+    pub fn delete_by_id(&mut self, id: i64) -> RepositorySimpleResult {
+        match self.model.iter().position(|c| c.id == id) {
+            Some(i) => {
+                self.model.remove(i);
+                return RepositorySimpleResult::OK;
+            }
+            None => {
+                return RepositorySimpleResult::Failed(format!("Can't find card"));
+            }
+        }
     }
 
     pub fn new_id(&mut self) -> i64 {

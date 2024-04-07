@@ -1,5 +1,5 @@
 use std::{
-    borrow::BorrowMut,
+    borrow::{Borrow, BorrowMut},
     string,
     sync::{Arc, RwLock},
 };
@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Error, Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -20,14 +20,12 @@ async fn main() {
     // tracing_subscriber::fmt::init();
 
     let mut repo = Arc::new(RwLock::new(Repository::new()));
-
     let app = Router::new()
-        .route("/card", post(add_card))
+        .route("/card", post(add_card).get(get_cards).patch(update_card))
+        .route("/card/:id", delete(rm_card))
+        .route("/card/random/:count", get(get_cards_random))
         .with_state(repo);
-    // .route("/card", get(get_cards))
-    // // .put(update_card))
     // .route("/card/import", post(import_cards))
-    // .route("/card/random/:count", get(get_cards_random))
     // .route("/card/random_lowest/:count", get(get_cards_random_lowest));
 
     // run our app with hyper, listening globally on port 3000
@@ -57,24 +55,58 @@ async fn add_card(
     }
 }
 
-async fn get_cards() -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+async fn rm_card(State(repo): State<Arc<RwLock<Repository>>>, Path(id): Path<i64>) -> Response {
+    // let mut c = Card::new(payload.src, payload.tr);
+    match repo.write().unwrap().delete_by_id(id) {
+        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+            return Response::new("".into());
+        }
+        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
+        },
+    }
 }
-async fn update_card(Json(payload): Json<CardDTO>) -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+
+async fn get_cards(State(repo): State<Arc<RwLock<Repository>>>) -> Response {
+    let out = repo.read().unwrap().all();
+    Json(out).into_response()
+}
+async fn update_card(
+    State(repo): State<Arc<RwLock<Repository>>>,
+    Json(payload): Json<CardDTO>,
+) -> Response {
+    let c = Card {
+        id: payload.id,
+        source: payload.src,
+        translation: payload.tr,
+        good: payload.good,
+        bad: payload.bad,
+    };
+    match repo.write().unwrap().update(&c) {
+        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+            return Json(c).into_response();
+        }
+        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+            return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
+        }
+    }
 }
 
 async fn import_cards() -> Response {
     (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
 }
 
-async fn get_cards_random(Path(count): Path<usize>) -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+async fn get_cards_random(
+    State(repo): State<Arc<RwLock<Repository>>>,
+    Path(count): Path<usize>,
+) -> Response {
+    let out = repo.read().unwrap().random(count);
+    Json(out).into_response()
 }
 
-async fn get_cards_random_lowest(Path(count): Path<usize>) -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
-}
+// async fn get_cards_random_lowest(Path(count): Path<usize>) -> Response {
+//     (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+// }
 
 #[derive(Deserialize)]
 struct AddCardDTO {
@@ -84,11 +116,11 @@ struct AddCardDTO {
 
 #[derive(Deserialize)]
 struct CardDTO {
-    id: usize,
+    id: i64,
     src: String,
     tr: String,
-    good: usize,
-    bad: usize,
+    good: u32,
+    bad: u32,
 }
 
 #[derive(Deserialize)]
