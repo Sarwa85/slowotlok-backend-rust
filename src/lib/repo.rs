@@ -76,6 +76,15 @@ impl Repository {
         RepositorySimpleResult::OK
     }
 
+    pub fn insert_list(&mut self, cards: &mut Vec<Card>) -> RepositorySimpleResult {
+        for card in cards.iter_mut() {
+            card.id = self.new_id();
+            self.model.push(card.clone());
+        }
+        self.save();
+        RepositorySimpleResult::OK
+    }
+
     /// Update values of card in base, found by id.
     pub fn update(&mut self, card: &Card) -> RepositorySimpleResult {
         match self.model.iter_mut().find(|cd| cd.id == card.id) {

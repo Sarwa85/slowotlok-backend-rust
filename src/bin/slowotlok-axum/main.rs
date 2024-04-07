@@ -11,6 +11,7 @@ use axum::{
     routing::{delete, get, post},
     Error, Json, Router,
 };
+use cursive::vec;
 use serde::{Deserialize, Serialize};
 use slowotlok_backend_rust::{card::Card, repo::Repository};
 
@@ -24,8 +25,8 @@ async fn main() {
         .route("/card", post(add_card).get(get_cards).patch(update_card))
         .route("/card/:id", delete(rm_card))
         .route("/card/random/:count", get(get_cards_random))
+        .route("/card/import", post(import_cards))
         .with_state(repo);
-    // .route("/card/import", post(import_cards))
     // .route("/card/random_lowest/:count", get(get_cards_random_lowest));
 
     // run our app with hyper, listening globally on port 3000
@@ -63,7 +64,7 @@ async fn rm_card(State(repo): State<Arc<RwLock<Repository>>>, Path(id): Path<i64
         }
         slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
-        },
+        }
     }
 }
 
@@ -92,8 +93,26 @@ async fn update_card(
     }
 }
 
-async fn import_cards() -> Response {
-    (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+async fn import_cards(
+    State(repo): State<Arc<RwLock<Repository>>>,
+    Json(payload): Json<Vec<AddCardDTO>>,
+) -> Response {
+    let mut response_struct = ImportCardsResponse{added: vec![], errors: vec![]};
+    // let mut cards_added: Vec<Card> = vec![];
+    // let mut error_text_list: Vec<String> = vec![];
+    for card in payload.iter() {
+        let mut c = Card::new(card.src.clone(),card.tr.clone());
+        match repo.write().unwrap().insert(&mut c) {
+            slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+                response_struct.added.push(c)
+            },
+            slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+                response_struct.errors.push(error_text)
+            },
+        }
+    }
+    Json(response_struct).into_response()
+    // (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
 }
 
 async fn get_cards_random(
@@ -126,4 +145,10 @@ struct CardDTO {
 #[derive(Deserialize)]
 struct ErrorDTO {
     message: String,
+}
+
+#[derive(Serialize)]
+struct ImportCardsResponse {
+    added: Vec<Card>,
+    errors: Vec<String>,
 }
