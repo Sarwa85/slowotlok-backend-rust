@@ -5,7 +5,7 @@ use cursive::{
     views::{Button, Dialog, LinearLayout, OnEventView, SelectView},
     Cursive,
 };
-use slowotlok_backend_rust::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, repo::Repository};
 
 use super::{show_card_details, show_message};
 

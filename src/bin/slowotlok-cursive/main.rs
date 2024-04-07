@@ -1,5 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
-use slowotlok_backend_rust::repo::{Repository};
+use slowotlok_backend::repo::{Repository};
 
 mod ui;
 

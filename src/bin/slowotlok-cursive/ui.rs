@@ -9,7 +9,7 @@ use cursive::{
     Cursive,
 };
 pub use manage_words::show_manage_words;
-use slowotlok_backend_rust::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, repo::Repository};
 pub use test::show_test_random;
 
 #[derive(Clone, Debug)]

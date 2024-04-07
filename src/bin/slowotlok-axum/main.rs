@@ -13,7 +13,7 @@ use axum::{
 };
 use cursive::vec;
 use serde::{Deserialize, Serialize};
-use slowotlok_backend_rust::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, repo::Repository};
 
 #[tokio::main]
 async fn main() {
@@ -47,10 +47,10 @@ async fn add_card(
 ) -> Response {
     let mut c = Card::new(payload.src, payload.tr);
     match repo.write().unwrap().insert(&mut c) {
-        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::repo::RepositorySimpleResult::OK => {
             return Json(c).into_response();
         }
-        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
@@ -59,10 +59,10 @@ async fn add_card(
 async fn rm_card(State(repo): State<Arc<RwLock<Repository>>>, Path(id): Path<i64>) -> Response {
     // let mut c = Card::new(payload.src, payload.tr);
     match repo.write().unwrap().delete_by_id(id) {
-        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::repo::RepositorySimpleResult::OK => {
             return Response::new("".into());
         }
-        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
@@ -84,10 +84,10 @@ async fn update_card(
         bad: payload.bad,
     };
     match repo.write().unwrap().update(&c) {
-        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+        slowotlok_backend::repo::RepositorySimpleResult::OK => {
             return Json(c).into_response();
         }
-        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+        slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
         }
     }
@@ -103,10 +103,10 @@ async fn import_cards(
     for card in payload.iter() {
         let mut c = Card::new(card.src.clone(),card.tr.clone());
         match repo.write().unwrap().insert(&mut c) {
-            slowotlok_backend_rust::repo::RepositorySimpleResult::OK => {
+            slowotlok_backend::repo::RepositorySimpleResult::OK => {
                 response_struct.added.push(c)
             },
-            slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(error_text) => {
+            slowotlok_backend::repo::RepositorySimpleResult::Failed(error_text) => {
                 response_struct.errors.push(error_text)
             },
         }
@@ -142,10 +142,10 @@ struct CardDTO {
     bad: u32,
 }
 
-#[derive(Deserialize)]
-struct ErrorDTO {
-    message: String,
-}
+// #[derive(Deserialize)]
+// struct ErrorDTO {
+//     message: String,
+// }
 
 #[derive(Serialize)]
 struct ImportCardsResponse {

@@ -5,7 +5,7 @@ use cursive::{
     views::{Dialog, OnEventView},
     Cursive,
 };
-use slowotlok_backend_rust::{card::Card, repo::Repository};
+use slowotlok_backend::{card::Card, repo::Repository};
 
 use super::VoteData;
 
@@ -82,8 +82,8 @@ fn vote(s: &mut Cursive, repo: Rc<RefCell<Repository>>, mut card: Card, good: bo
     }
     // repo
     match (*repo).borrow_mut().update(&card) {
-        slowotlok_backend_rust::repo::RepositorySimpleResult::OK => (),
-        slowotlok_backend_rust::repo::RepositorySimpleResult::Failed(_) => todo!(),
+        slowotlok_backend::repo::RepositorySimpleResult::OK => (),
+        slowotlok_backend::repo::RepositorySimpleResult::Failed(_) => todo!(),
     }
     s.pop_layer();
 }
