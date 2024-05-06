@@ -1,7 +1,7 @@
 use std::{
     borrow::{Borrow, BorrowMut},
     string,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
 };
 
 use axum::{
@@ -12,9 +12,28 @@ use axum::{
     Error, Json, Router,
 };
 use cursive::vec;
+use diesel::{r2d2::ConnectionManager, SqliteConnection};
 use serde::{Deserialize, Serialize};
-use slowotlok_backend::{card::Card, simple_repository::SimpleRepository};
+use slowotlok_backend::{repository_sqlite::{establish_connection, RepositorySqlite}};
 use slowotlok_backend::repository::RepositoryTrait;
+use slowotlok_backend::dtos::CardDTO;
+
+
+// fn main1() {
+//     let manager = ConnectionManager::<SqliteConnection>::new("db.sqlite");
+//     let pool = r2d2::Pool::builder().build(manager).expect("Failed to create pool.");
+
+//     for _ in 0..10i32 {
+//         let pool = pool.clone();
+//         thread::spawn(move || {
+//             let connection = pool.get();
+
+//             assert!(connection.is_ok());
+//         });
+//     }
+// }
+
+
 
 
 #[tokio::main]
@@ -22,7 +41,13 @@ async fn main() {
     // initialize tracing
     // tracing_subscriber::fmt::init();
 
-    let mut repo: Arc<RwLock<dyn RepositoryTrait + Sync + Send>> = Arc::new(RwLock::new(SimpleRepository::new()));
+    // let mut repo: Arc<RwLock<dyn RepositoryTrait + Sync + Send>> = Arc::new(RwLock::new(SimpleRepository::new()));
+    let mut repo = Arc::new(Mutex::new(RepositorySqlite::new()));
+
+
+
+
+
     let app = Router::new()
         .route("/card", post(add_card).get(get_cards).patch(update_card))
         .route("/card/:id", delete(rm_card))
@@ -44,13 +69,15 @@ async fn handle_error(error: Error) -> (StatusCode, String) {
 }
 
 async fn add_card(
-    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
+    State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<AddCardDTO>,
 ) -> Response {
-    let mut c = Card::new(payload.src, payload.tr);
-    match repo.write().unwrap().insert(&mut c) {
+    println!("Adding card...");
+    let mut e = CardDTO::to_entity(CardDTO::new(payload.src, payload.tr));
+    let mut r = repo.lock().unwrap();
+    match r.insert(&mut e) {
         slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-            return Json(c).into_response();
+            return Json(CardDTO::from_entity(&e)).into_response();
         }
         slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
@@ -58,9 +85,10 @@ async fn add_card(
     }
 }
 
-async fn rm_card(State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>, Path(id): Path<i64>) -> Response {
+async fn rm_card(State(repo): State<Arc<Mutex<impl RepositoryTrait>>>, Path(id): Path<i64>) -> Response {
     // let mut c = Card::new(payload.src, payload.tr);
-    match repo.write().unwrap().delete_by_id(id) {
+    let mut r = repo.lock().unwrap();
+    match r.delete_by_id(id) {
         slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
             return Response::new("".into());
         }
@@ -70,24 +98,21 @@ async fn rm_card(State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send
     }
 }
 
-async fn get_cards(State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>) -> Response {
-    let out = repo.read().unwrap().all();
+async fn get_cards(State(repo): State<Arc<Mutex<impl RepositoryTrait>>>) -> Response {
+    let mut r = repo.lock().unwrap();
+    let out: Vec<CardDTO> = r.all().iter().map(|x| CardDTO::from_entity(x)).collect();
     Json(out).into_response()
 }
 async fn update_card(
-    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
+    State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<CardDTO>,
 ) -> Response {
-    let c = Card {
-        id: payload.id,
-        source: payload.src,
-        translation: payload.tr,
-        good: payload.good,
-        bad: payload.bad,
-    };
-    match repo.write().unwrap().update(&c) {
+    let c = CardDTO::to_entity(payload);
+    let mut r = repo.lock().unwrap();
+    match r.update(&c) {
         slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-            return Json(c).into_response();
+            let out = CardDTO::from_entity(&c);
+            return Json(out).into_response();
         }
         slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
             return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
@@ -96,17 +121,18 @@ async fn update_card(
 }
 
 async fn import_cards(
-    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
+    State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<Vec<AddCardDTO>>,
 ) -> Response {
     let mut response_struct = ImportCardsResponse{added: vec![], errors: vec![]};
     // let mut cards_added: Vec<Card> = vec![];
     // let mut error_text_list: Vec<String> = vec![];
     for card in payload.iter() {
-        let mut c = Card::new(card.src.clone(),card.tr.clone());
-        match repo.write().unwrap().insert(&mut c) {
+        let mut e = CardDTO::to_entity(CardDTO::new(card.src.clone(),card.tr.clone()));
+        let mut r = repo.lock().unwrap();
+        match r.insert(&mut e) {
             slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-                response_struct.added.push(c)
+                response_struct.added.push(CardDTO::from_entity(&e));
             },
             slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
                 response_struct.errors.push(error_text)
@@ -118,10 +144,11 @@ async fn import_cards(
 }
 
 async fn get_cards_random(
-    State(repo): State<Arc<RwLock<dyn RepositoryTrait + Sync + Send>>>,
+    State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Path(count): Path<usize>,
 ) -> Response {
-    let out = repo.read().unwrap().random(count);
+    let r = repo.lock().unwrap();
+    let out: Vec<_> = r.random(count).iter().map(|x| CardDTO::from_entity(x)).collect();
     Json(out).into_response()
 }
 
@@ -135,15 +162,6 @@ struct AddCardDTO {
     tr: String,
 }
 
-#[derive(Deserialize)]
-struct CardDTO {
-    id: i64,
-    src: String,
-    tr: String,
-    good: u32,
-    bad: u32,
-}
-
 // #[derive(Deserialize)]
 // struct ErrorDTO {
 //     message: String,
@@ -151,6 +169,6 @@ struct CardDTO {
 
 #[derive(Serialize)]
 struct ImportCardsResponse {
-    added: Vec<Card>,
+    added: Vec<CardDTO>,
     errors: Vec<String>,
 }

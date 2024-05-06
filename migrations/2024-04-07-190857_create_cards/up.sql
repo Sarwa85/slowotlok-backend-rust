@@ -1,0 +1,9 @@
+-- Your SQL goes here
+CREATE TABLE `card`(
+	`id` INTEGER NOT NULL PRIMARY KEY,
+	`src` VARCHAR NOT NULL,
+	`tr` VARCHAR NOT NULL,
+	`good` INTEGER NOT NULL,
+	`bad` INTEGER NOT NULL
+);
+
