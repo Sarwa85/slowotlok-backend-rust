@@ -1,9 +1,9 @@
 use diesel::{query_dsl::methods::FilterDsl, Connection, ExpressionMethods, RunQueryDsl, SelectableHelper, SqliteConnection};
 use dotenvy::dotenv;
-use std::env;
+use std::{env, error::Error};
 
 use crate::{
-    models::{CardEntity, NewCard},
+    models::{Card, NewCard},
     repository::RepositoryTrait,
     schema,
 };
@@ -31,7 +31,7 @@ impl RepositorySqlite {
 }
 
 impl RepositoryTrait for RepositorySqlite {
-    fn random(&self, _count: usize) -> Vec<CardEntity> {
+    fn random(&self, _count: usize) -> Vec<Card> {
         todo!()
     }
 
@@ -39,30 +39,30 @@ impl RepositoryTrait for RepositorySqlite {
         todo!()
     }
 
-    fn all(&mut self) -> Vec<CardEntity> {
+    fn all(&mut self) -> Vec<Card> {
         use self::schema::card::dsl::*;
-        return card.load::<CardEntity>(&mut self.con).unwrap();
+        return card.load::<Card>(&mut self.con).unwrap();
     }
 
-    fn insert(&mut self, card: NewCard) -> Result<CardEntity, String> {
+    fn insert(&mut self, card: NewCard) -> Result<Card, Box<dyn Error>> {
         match diesel::insert_into(schema::card::table)
             .values(card)
-            .returning(CardEntity::as_returning())
-            .get_result::<CardEntity>(&mut self.con)
+            .returning(Card::as_returning())
+            .get_result::<Card>(&mut self.con)
         {
             Ok(entity) => return Ok(entity),
-            Err(error) => return Err(error.to_string()),
+            Err(error) => return Err(error.into()),
         }
     }
 
     fn insert_list(
         &mut self,
-        _cards: &mut Vec<CardEntity>,
-    ) -> crate::simple_repository::RepositorySimpleResult {
+        _cards: &mut Vec<NewCard>,
+    ) -> Result<Vec<Card>, String> {
         todo!()
     }
 
-    fn update(&mut self, _card: &CardEntity) -> crate::simple_repository::RepositorySimpleResult {
+    fn update(&mut self, _card: &Card) -> Result<Card, String> {
         todo!()
     }
 

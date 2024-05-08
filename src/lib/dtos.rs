@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
 
-use crate::models::CardEntity;
+use crate::models::Card;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CardDTO {
-    id: i32,
-    src: String,
-    tr: String,
-    good: i32,
-    bad: i32,
+    pub id: i32,
+    pub src: String,
+    pub tr: String,
+    pub good: i32,
+    pub bad: i32,
 }
 
-impl From<CardEntity> for CardDTO {
-    fn from(value: CardEntity) -> Self {
+impl From<Card> for CardDTO {
+    fn from(value: Card) -> Self {
         CardDTO {
             id: value.id,
             src: value.src,
@@ -31,26 +31,6 @@ impl CardDTO {
             tr,
             good: 0,
             bad: 0,
-        }
-    }
-
-    pub fn from_entity(entity: &CardEntity) -> CardDTO {
-        CardDTO {
-            id: entity.id,
-            src: entity.src.clone(),
-            tr: entity.tr.clone(),
-            good: entity.good,
-            bad: entity.bad,
-        }
-    }
-
-    pub fn to_entity(dto: CardDTO) -> CardEntity {
-        CardEntity {
-            id: dto.id,
-            src: dto.src,
-            tr: dto.tr,
-            good: dto.good,
-            bad: dto.bad,
         }
     }
 }

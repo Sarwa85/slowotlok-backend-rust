@@ -7,12 +7,12 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use slowotlok_backend::repository::RepositoryTrait;
 use slowotlok_backend::repository_sqlite::RepositorySqlite;
 use slowotlok_backend::{
     dtos::{AddCardDTO, CardDTO, ImportCardsResponseDTO},
-    models::NewCard,
+    // models::NewCard,
 };
+use slowotlok_backend::{models::NewCard, repository::RepositoryTrait};
 
 #[tokio::main]
 async fn main() {
@@ -44,8 +44,8 @@ async fn add_card(
     let result = r.insert(NewCard::new(payload.src.clone(), payload.tr.clone()));
     drop(r);
     match result {
-        Ok(entity) => Json(CardDTO::from_entity(&entity)).into_response(),
-        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error).into_response(),
+        Ok(entity) => Json(CardDTO::from(entity)).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
     }
 }
 
@@ -62,23 +62,18 @@ async fn rm_card(
 
 async fn get_cards(State(repo): State<Arc<Mutex<impl RepositoryTrait>>>) -> Response {
     let mut r = repo.lock().unwrap();
-    let out: Vec<CardDTO> = r.all().iter().map(|x| CardDTO::from_entity(x)).collect();
+    let out: Vec<CardDTO> = r.all().iter().map(|x| CardDTO::from(x.clone())).collect();
     Json(out).into_response()
 }
 async fn update_card(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<CardDTO>,
 ) -> Response {
-    let c = CardDTO::to_entity(payload);
+    let c = payload.into();
     let mut r = repo.lock().unwrap();
     match r.update(&c) {
-        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-            let out = CardDTO::from_entity(&c);
-            return Json(out).into_response();
-        }
-        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
-        }
+        Ok(c) => Json(CardDTO::from(c)).into_response(),
+        Err(error_text) => (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response(),
     }
 }
 
@@ -91,9 +86,8 @@ async fn import_cards(
     let mut r = repo.lock().unwrap();
     for card in payload.iter() {
         match r.insert(NewCard::new(card.src.clone(), card.tr.clone())) {
-            // Ok(entity) => added.push(CardDTO::from_entity(&entity)),
             Ok(entity) => added.push(entity.into()),
-            Err(error) => errors.push(error),
+            Err(error) => errors.push(error.to_string()),
         }
     }
     Json(ImportCardsResponseDTO::new(added, errors)).into_response()
@@ -107,7 +101,7 @@ async fn get_cards_random(
     let out: Vec<_> = r
         .random(count)
         .iter()
-        .map(|x| CardDTO::from_entity(x))
+        .map(|x| CardDTO::from(x.clone()))
         .collect();
     Json(out).into_response()
 }

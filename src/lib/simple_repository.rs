@@ -11,11 +11,6 @@
 //     last_id: i64,
 // }
 
-pub enum RepositorySimpleResult {
-    OK,
-    Failed(String),
-}
-
 // impl SimpleRepository {
 //     pub fn new() -> Self {
 //         let mut out = Self {
