@@ -9,7 +9,7 @@ edition = "2021"
 axum = "0.7.5"
 colored = "2.1.0"
 cursive = "0.20.0"
-diesel = { version = "2.1.5", features = ["sqlite", "r2d2"] }
+diesel = { version = "2.1.5", features = ["sqlite", "returning_clauses_for_sqlite_3_35"] }
 dotenvy = "0.15.7"
 rand = "0.8.5"
 serde = { version = "1.0.197", features = ["derive"] }

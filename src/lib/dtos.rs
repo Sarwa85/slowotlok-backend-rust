@@ -11,6 +11,18 @@ pub struct CardDTO {
     bad: i32,
 }
 
+impl From<CardEntity> for CardDTO {
+    fn from(value: CardEntity) -> Self {
+        CardDTO {
+            id: value.id,
+            src: value.src,
+            tr: value.tr,
+            good: value.good,
+            bad: value.bad,
+        }
+    }
+}
+
 impl CardDTO {
     pub fn new(src: String, tr: String) -> Self {
         Self {
@@ -40,5 +52,28 @@ impl CardDTO {
             good: dto.good,
             bad: dto.bad,
         }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct AddCardDTO {
+    pub src: String,
+    pub tr: String,
+}
+
+// #[derive(Deserialize)]
+// struct ErrorDTO {
+//     message: String,
+// }
+
+#[derive(Serialize)]
+pub struct ImportCardsResponseDTO {
+    added: Vec<CardDTO>,
+    errors: Vec<String>,
+}
+
+impl ImportCardsResponseDTO {
+    pub fn new(added: Vec<CardDTO>, errors: Vec<String>) -> Self {
+        ImportCardsResponseDTO{added, errors}
     }
 }

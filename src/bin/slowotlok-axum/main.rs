@@ -1,40 +1,18 @@
-use std::{
-    borrow::{Borrow, BorrowMut},
-    string,
-    sync::{Arc, Mutex, RwLock},
-};
+use std::sync::{Arc, Mutex};
 
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, post},
-    Error, Json, Router,
+    Json, Router,
 };
-use cursive::vec;
-use diesel::{r2d2::ConnectionManager, SqliteConnection};
-use serde::{Deserialize, Serialize};
-use slowotlok_backend::{repository_sqlite::{establish_connection, RepositorySqlite}};
 use slowotlok_backend::repository::RepositoryTrait;
-use slowotlok_backend::dtos::CardDTO;
-
-
-// fn main1() {
-//     let manager = ConnectionManager::<SqliteConnection>::new("db.sqlite");
-//     let pool = r2d2::Pool::builder().build(manager).expect("Failed to create pool.");
-
-//     for _ in 0..10i32 {
-//         let pool = pool.clone();
-//         thread::spawn(move || {
-//             let connection = pool.get();
-
-//             assert!(connection.is_ok());
-//         });
-//     }
-// }
-
-
-
+use slowotlok_backend::repository_sqlite::RepositorySqlite;
+use slowotlok_backend::{
+    dtos::{AddCardDTO, CardDTO, ImportCardsResponseDTO},
+    models::NewCard,
+};
 
 #[tokio::main]
 async fn main() {
@@ -42,11 +20,7 @@ async fn main() {
     // tracing_subscriber::fmt::init();
 
     // let mut repo: Arc<RwLock<dyn RepositoryTrait + Sync + Send>> = Arc::new(RwLock::new(SimpleRepository::new()));
-    let mut repo = Arc::new(Mutex::new(RepositorySqlite::new()));
-
-
-
-
+    let repo = Arc::new(Mutex::new(RepositorySqlite::new()));
 
     let app = Router::new()
         .route("/card", post(add_card).get(get_cards).patch(update_card))
@@ -61,40 +35,28 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handle_error(error: Error) -> (StatusCode, String) {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        format!("Something went wrong: {}", error),
-    )
-}
-
 async fn add_card(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<AddCardDTO>,
 ) -> Response {
     println!("Adding card...");
-    let mut e = CardDTO::to_entity(CardDTO::new(payload.src, payload.tr));
     let mut r = repo.lock().unwrap();
-    match r.insert(&mut e) {
-        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-            return Json(CardDTO::from_entity(&e)).into_response();
-        }
-        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
-        }
+    let result = r.insert(NewCard::new(payload.src.clone(), payload.tr.clone()));
+    drop(r);
+    match result {
+        Ok(entity) => Json(CardDTO::from_entity(&entity)).into_response(),
+        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error).into_response(),
     }
 }
 
-async fn rm_card(State(repo): State<Arc<Mutex<impl RepositoryTrait>>>, Path(id): Path<i64>) -> Response {
-    // let mut c = Card::new(payload.src, payload.tr);
+async fn rm_card(
+    State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
+    Path(id): Path<i32>,
+) -> Response {
     let mut r = repo.lock().unwrap();
-    match r.delete_by_id(id) {
-        slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-            return Response::new("".into());
-        }
-        slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response();
-        }
+    match r.delete(id) {
+        Ok(id) => Response::new("".into()),
+        Err(error) => Response::new(error.into()),
     }
 }
 
@@ -124,23 +86,17 @@ async fn import_cards(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<Vec<AddCardDTO>>,
 ) -> Response {
-    let mut response_struct = ImportCardsResponse{added: vec![], errors: vec![]};
-    // let mut cards_added: Vec<Card> = vec![];
-    // let mut error_text_list: Vec<String> = vec![];
+    let mut added = vec![];
+    let mut errors = vec![];
+    let mut r = repo.lock().unwrap();
     for card in payload.iter() {
-        let mut e = CardDTO::to_entity(CardDTO::new(card.src.clone(),card.tr.clone()));
-        let mut r = repo.lock().unwrap();
-        match r.insert(&mut e) {
-            slowotlok_backend::simple_repository::RepositorySimpleResult::OK => {
-                response_struct.added.push(CardDTO::from_entity(&e));
-            },
-            slowotlok_backend::simple_repository::RepositorySimpleResult::Failed(error_text) => {
-                response_struct.errors.push(error_text)
-            },
+        match r.insert(NewCard::new(card.src.clone(), card.tr.clone())) {
+            // Ok(entity) => added.push(CardDTO::from_entity(&entity)),
+            Ok(entity) => added.push(entity.into()),
+            Err(error) => errors.push(error),
         }
     }
-    Json(response_struct).into_response()
-    // (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
+    Json(ImportCardsResponseDTO::new(added, errors)).into_response()
 }
 
 async fn get_cards_random(
@@ -148,27 +104,14 @@ async fn get_cards_random(
     Path(count): Path<usize>,
 ) -> Response {
     let r = repo.lock().unwrap();
-    let out: Vec<_> = r.random(count).iter().map(|x| CardDTO::from_entity(x)).collect();
+    let out: Vec<_> = r
+        .random(count)
+        .iter()
+        .map(|x| CardDTO::from_entity(x))
+        .collect();
     Json(out).into_response()
 }
 
 // async fn get_cards_random_lowest(Path(count): Path<usize>) -> Response {
 //     (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
 // }
-
-#[derive(Deserialize)]
-struct AddCardDTO {
-    src: String,
-    tr: String,
-}
-
-// #[derive(Deserialize)]
-// struct ErrorDTO {
-//     message: String,
-// }
-
-#[derive(Serialize)]
-struct ImportCardsResponse {
-    added: Vec<CardDTO>,
-    errors: Vec<String>,
-}
