@@ -4,3 +4,4 @@ pub mod repository_sqlite;
 pub mod schema;
 pub mod models;
 pub mod dtos;
+pub mod apperror;

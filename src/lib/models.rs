@@ -2,7 +2,7 @@ use diesel::prelude::*;
 
 use crate::dtos::{AddCardDTO, CardDTO};
 
-#[derive(Queryable, Selectable, Clone)]
+#[derive(Queryable, Selectable, Clone, AsChangeset)]
 #[diesel(table_name = crate::schema::card)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Card {

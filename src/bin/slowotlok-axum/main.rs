@@ -7,12 +7,11 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
+use slowotlok_backend::dtos::{AddCardDTO, CardDTO, ImportCardsResponseDTO};
 use slowotlok_backend::repository_sqlite::RepositorySqlite;
-use slowotlok_backend::{
-    dtos::{AddCardDTO, CardDTO, ImportCardsResponseDTO},
-    // models::NewCard,
-};
 use slowotlok_backend::{models::NewCard, repository::RepositoryTrait};
+
+mod logic;
 
 #[tokio::main]
 async fn main() {
@@ -37,15 +36,11 @@ async fn main() {
 
 async fn add_card(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
-    Json(payload): Json<AddCardDTO>,
+    Json(card): Json<AddCardDTO>,
 ) -> Response {
-    println!("Adding card...");
-    let mut r = repo.lock().unwrap();
-    let result = r.insert(NewCard::new(payload.src.clone(), payload.tr.clone()));
-    drop(r);
-    match result {
-        Ok(entity) => Json(CardDTO::from(entity)).into_response(),
-        Err(error) => (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()).into_response(),
+    match logic::add_card(repo, card) {
+        Ok(card) => Json(CardDTO::from(card)).into_response(),
+        Err(error) => error.into_response(),
     }
 }
 
@@ -55,25 +50,38 @@ async fn rm_card(
 ) -> Response {
     let mut r = repo.lock().unwrap();
     match r.delete(id) {
-        Ok(id) => Response::new("".into()),
+        Ok(_id) => Response::new("".into()),
         Err(error) => Response::new(error.into()),
     }
 }
 
 async fn get_cards(State(repo): State<Arc<Mutex<impl RepositoryTrait>>>) -> Response {
-    let mut r = repo.lock().unwrap();
-    let out: Vec<CardDTO> = r.all().iter().map(|x| CardDTO::from(x.clone())).collect();
-    Json(out).into_response()
+    let mut repo_lock = repo.lock().unwrap();
+    let result = repo_lock.all();
+    drop(repo_lock);
+    match result {
+        Ok(cards) => Json(
+            cards
+                .into_iter()
+                .map(|x| CardDTO::from(x))
+                .collect::<Vec<CardDTO>>(),
+        )
+        .into_response(),
+        Err(_) => todo!(),
+    }
 }
 async fn update_card(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(payload): Json<CardDTO>,
 ) -> Response {
-    let c = payload.into();
-    let mut r = repo.lock().unwrap();
-    match r.update(&c) {
+    let mut repo_lock = repo.lock().unwrap();
+    let result = repo_lock.update(payload.into());
+    drop(repo_lock);
+    match result {
         Ok(c) => Json(CardDTO::from(c)).into_response(),
-        Err(error_text) => (StatusCode::INTERNAL_SERVER_ERROR, error_text).into_response(),
+        Err(error_text) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, error_text.to_string()).into_response()
+        }
     }
 }
 
@@ -83,9 +91,11 @@ async fn import_cards(
 ) -> Response {
     let mut added = vec![];
     let mut errors = vec![];
-    let mut r = repo.lock().unwrap();
     for card in payload.iter() {
-        match r.insert(NewCard::new(card.src.clone(), card.tr.clone())) {
+        let mut repo_lock = repo.lock().unwrap();
+        let result = repo_lock.insert(NewCard::new(card.src.clone(), card.tr.clone()));
+        drop(repo_lock);
+        match result {
             Ok(entity) => added.push(entity.into()),
             Err(error) => errors.push(error.to_string()),
         }
@@ -97,15 +107,17 @@ async fn get_cards_random(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Path(count): Path<usize>,
 ) -> Response {
-    let r = repo.lock().unwrap();
-    let out: Vec<_> = r
-        .random(count)
-        .iter()
-        .map(|x| CardDTO::from(x.clone()))
-        .collect();
-    Json(out).into_response()
+    let repo_lock = repo.lock().unwrap();
+    let result = repo_lock.random(count);
+    drop(repo_lock);
+    match result {
+        Ok(cards) => Json(
+            cards
+                .into_iter()
+                .map(|x| x.into())
+                .collect::<Vec<CardDTO>>(),
+        )
+        .into_response(),
+        Err(error) => error.into_response(),
+    }
 }
-
-// async fn get_cards_random_lowest(Path(count): Path<usize>) -> Response {
-//     (StatusCode::NOT_IMPLEMENTED, "Not implemented yet").into_response()
-// }
