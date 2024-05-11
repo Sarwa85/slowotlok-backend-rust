@@ -1,11 +1,15 @@
 use diesel::{
-    query_dsl::methods::FilterDsl, query_source::AppearsInFromClause, Connection, ExpressionMethods, RunQueryDsl, SelectableHelper, SqliteConnection
+    query_dsl::methods::FilterDsl, query_source::AppearsInFromClause, Connection,
+    ExpressionMethods, RunQueryDsl, SelectableHelper, SqliteConnection,
 };
 use dotenvy::dotenv;
-use std::{env, error::Error};
+use std::env;
 
 use crate::{
-    apperror::AppError, models::{Card, NewCard}, repository::RepositoryTrait, schema
+    apperror::AppError,
+    models::{Card, NewCard},
+    repository::RepositoryTrait,
+    schema,
 };
 
 pub fn establish_connection() -> SqliteConnection {

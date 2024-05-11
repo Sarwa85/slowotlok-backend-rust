@@ -1,3 +1,5 @@
+// use std::sync::{Arc};
+
 use std::sync::{Arc, Mutex};
 
 use axum::{
@@ -38,7 +40,7 @@ async fn add_card(
     State(repo): State<Arc<Mutex<impl RepositoryTrait>>>,
     Json(card): Json<AddCardDTO>,
 ) -> Response {
-    match logic::add_card(repo, card) {
+    match logic::add_card(repo, card).await {
         Ok(card) => Json(CardDTO::from(card)).into_response(),
         Err(error) => error.into_response(),
     }
